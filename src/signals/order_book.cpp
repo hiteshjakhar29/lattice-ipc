@@ -101,6 +101,24 @@ void OrderBook::refresh_bbo() noexcept {
     }
 }
 
+std::size_t OrderBook::top_bids(double* prices, uint32_t* qtys, std::size_t n) const noexcept {
+    std::size_t filled = 0;
+    for (auto it = bids_.begin(); it != bids_.end() && filled < n; ++it, ++filled) {
+        prices[filled] = it->first;
+        qtys[filled]   = it->second;
+    }
+    return filled;
+}
+
+std::size_t OrderBook::top_asks(double* prices, uint32_t* qtys, std::size_t n) const noexcept {
+    std::size_t filled = 0;
+    for (auto it = asks_.begin(); it != asks_.end() && filled < n; ++it, ++filled) {
+        prices[filled] = it->first;
+        qtys[filled]   = it->second;
+    }
+    return filled;
+}
+
 void OrderBook::clear() noexcept {
     bids_.clear();
     asks_.clear();

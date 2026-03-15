@@ -17,8 +17,17 @@ static FeedEvent add_ask(uint64_t oid, double price, uint32_t qty) {
 static FeedEvent modify_bid(uint64_t oid, double price, uint32_t qty) {
     return make_feed_event<FeedEvent>(EventType::Modify, true, oid, price, qty);
 }
+static FeedEvent modify_ask(uint64_t oid, double price, uint32_t qty) {
+    return make_feed_event<FeedEvent>(EventType::Modify, false, oid, price, qty);
+}
 static FeedEvent cancel_bid(uint64_t oid, double price) {
     return make_feed_event<FeedEvent>(EventType::Cancel, true, oid, price, 0);
+}
+static FeedEvent trade_buy(uint64_t oid, double price, uint32_t qty) {
+    return make_feed_event<FeedEvent>(EventType::Trade, true, oid, price, qty);
+}
+static FeedEvent trade_sell(uint64_t oid, double price, uint32_t qty) {
+    return make_feed_event<FeedEvent>(EventType::Trade, false, oid, price, qty);
 }
 
 // ── OrderBook benchmarks ───────────────────────────────────────────────────────
@@ -74,7 +83,7 @@ static void BM_SignalEngine_ProcessBboModify(benchmark::State& state) {
     eng.process(add_ask(2, 101.0, 500));
     uint32_t qty = 100;
     for (auto _ : state) {
-        // BBO-changing modify — triggers full signal recompute
+        // BBO-changing modify — triggers full signal recompute (OBI, microprice, OFI, VAMP, rolling OBI)
         benchmark::DoNotOptimize(eng.process(modify_bid(1, 100.0, qty++)));
     }
     state.SetItemsProcessed(state.iterations());
@@ -91,7 +100,7 @@ static void BM_SignalEngine_ProcessDeepModify(benchmark::State& state) {
     }
     uint32_t qty = 100;
     for (auto _ : state) {
-        // Modify a deep level — no signal recompute (fast path)
+        // Deep level modify — only VAMP recomputed (fast path for OBI/microprice)
         benchmark::DoNotOptimize(eng.process(modify_bid(6, 97.0, qty++)));
     }
     state.SetItemsProcessed(state.iterations());
@@ -121,3 +130,127 @@ static void BM_SignalEngine_MixedWorkload(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 BENCHMARK(BM_SignalEngine_MixedWorkload);
+
+// ── OFI benchmarks ─────────────────────────────────────────────────────────────
+
+static void BM_SignalEngine_OFI_BboStream(benchmark::State& state) {
+    SignalEngine eng;
+    eng.process(add_bid(1, 100.0, 500));
+    eng.process(add_ask(2, 101.0, 500));
+    uint32_t qty = 100;
+    for (auto _ : state) {
+        // Every modify triggers OFI delta + rolling window push
+        benchmark::DoNotOptimize(eng.process(modify_bid(1, 100.0, qty++)));
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_SignalEngine_OFI_BboStream);
+
+// ── VAMP benchmarks ────────────────────────────────────────────────────────────
+
+static void BM_SignalEngine_VAMP_ThreeLevels(benchmark::State& state) {
+    SignalEngine eng;
+    // Pre-populate 3 levels on each side
+    eng.process(add_bid(1, 100.0, 300));
+    eng.process(add_bid(2,  99.0, 200));
+    eng.process(add_bid(3,  98.0, 100));
+    eng.process(add_ask(4, 101.0, 300));
+    eng.process(add_ask(5, 102.0, 200));
+    eng.process(add_ask(6, 103.0, 100));
+    uint32_t qty = 100;
+    for (auto _ : state) {
+        // Deep bid modify — only VAMP recomputed (BBO unchanged)
+        benchmark::DoNotOptimize(eng.process(modify_bid(2, 99.0, qty++)));
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_SignalEngine_VAMP_ThreeLevels);
+
+static void BM_SignalEngine_VAMP_BboChange(benchmark::State& state) {
+    SignalEngine eng;
+    eng.process(add_bid(1, 100.0, 300));
+    eng.process(add_bid(2,  99.0, 200));
+    eng.process(add_bid(3,  98.0, 100));
+    eng.process(add_ask(4, 101.0, 300));
+    eng.process(add_ask(5, 102.0, 200));
+    eng.process(add_ask(6, 103.0, 100));
+    uint32_t qty = 100;
+    for (auto _ : state) {
+        // BBO modify — full signal recompute including VAMP
+        benchmark::DoNotOptimize(eng.process(modify_bid(1, 100.0, qty++)));
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_SignalEngine_VAMP_BboChange);
+
+// ── Rolling OBI benchmarks ─────────────────────────────────────────────────────
+
+static void BM_SignalEngine_RollingOBI(benchmark::State& state) {
+    SignalEngine eng;
+    eng.process(add_bid(1, 100.0, 500));
+    eng.process(add_ask(2, 101.0, 500));
+    uint32_t qty = 100;
+    for (auto _ : state) {
+        // Each BBO change pushes a new OBI value and recomputes mean+std over 20-element window
+        benchmark::DoNotOptimize(eng.process(modify_bid(1, 100.0, qty++)));
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_SignalEngine_RollingOBI);
+
+// ── Trade Flow Imbalance benchmarks ───────────────────────────────────────────
+
+static void BM_SignalEngine_TFI_BuyTrades(benchmark::State& state) {
+    SignalEngine eng;
+    eng.process(add_bid(1, 100.0, 10000000));
+    eng.process(add_ask(2, 101.0, 10000000));
+    uint64_t oid = 100;
+    uint32_t qty = 100;
+    for (auto _ : state) {
+        // Trade event triggers TFI recompute over 50-trade window (O(50) scan)
+        benchmark::DoNotOptimize(eng.process(trade_buy(oid++, 101.0, qty++)));
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_SignalEngine_TFI_BuyTrades);
+
+static void BM_SignalEngine_TFI_MixedTrades(benchmark::State& state) {
+    SignalEngine eng;
+    eng.process(add_bid(1, 100.0, 10000000));
+    eng.process(add_ask(2, 101.0, 10000000));
+    uint64_t oid = 100;
+    uint32_t qty = 100;
+    uint64_t iter = 0;
+    for (auto _ : state) {
+        if (iter % 2 == 0) {
+            benchmark::DoNotOptimize(eng.process(trade_buy(oid++, 101.0, qty)));
+        } else {
+            benchmark::DoNotOptimize(eng.process(trade_sell(oid++, 100.0, qty)));
+        }
+        ++qty; ++iter;
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_SignalEngine_TFI_MixedTrades);
+
+static void BM_SignalEngine_TFI_WithAskModify(benchmark::State& state) {
+    SignalEngine eng;
+    eng.process(add_bid(1, 100.0, 500));
+    eng.process(add_ask(2, 101.0, 10000000));
+    uint64_t oid = 100;
+    uint32_t qty = 200;
+    uint64_t iter = 0;
+    for (auto _ : state) {
+        if (iter % 3 == 0) {
+            benchmark::DoNotOptimize(eng.process(trade_buy(oid++, 101.0, qty)));
+        } else if (iter % 3 == 1) {
+            benchmark::DoNotOptimize(eng.process(trade_sell(oid++, 100.0, qty)));
+        } else {
+            // BBO modify interspersed
+            benchmark::DoNotOptimize(eng.process(modify_ask(2, 101.0, qty)));
+        }
+        ++qty; ++iter;
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_SignalEngine_TFI_WithAskModify);

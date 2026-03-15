@@ -2,17 +2,18 @@
 
 #include "lattice/feed_event.hpp"
 #include "lattice/signals/order_book.hpp"
+#include "lattice/signals/rolling_window.hpp"
 #include "lattice/signals/signal_snapshot.hpp"
+
+#include <cstdint>
 
 namespace lattice::signals {
 
-/// Wraps OrderBook and computes OBI + microprice on every BBO change.
+/// Wraps OrderBook and computes microstructure signals on every FeedEvent.
 ///
-/// Hot path:
-///   1. process(ev) → OrderBook::process(ev)
-///   2. If BBO changed: recompute_signals() — 4 multiplies, 3 adds, 1 divide
-///   3. If BBO unchanged: update timestamp only — zero arithmetic
-///   Returns const ref to the updated SignalSnapshot.
+/// Hot path (BBO change):  recompute_signals() — full signal set refresh.
+/// Fast path (deep change): update VAMP + timestamp only.
+/// Trade events additionally update Trade Flow Imbalance.
 class SignalEngine {
 public:
     SignalEngine() = default;
@@ -29,10 +30,21 @@ public:
     void reset() noexcept;
 
 private:
+    struct TradeRecord { uint32_t qty; bool is_buy; };
+
     OrderBook      book_;
     SignalSnapshot last_snapshot_{};
 
-    void recompute_signals(uint64_t ts_ns) noexcept;
+    double prev_best_bid_qty_ = 0.0;
+    double prev_best_ask_qty_ = 0.0;
+
+    RollingWindow<double, 10>      ofi_window_{};
+    RollingWindow<double, 20>      obi_window_{};
+    RollingWindow<TradeRecord, 50> trade_window_{};
+
+    void   recompute_signals(uint64_t ts_ns) noexcept;
+    double compute_vamp()  const noexcept;
+    double compute_tfi()   const noexcept;
 
     static uint64_t clock_ns() noexcept;
 };

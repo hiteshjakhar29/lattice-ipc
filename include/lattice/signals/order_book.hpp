@@ -37,6 +37,14 @@ public:
         return !bids_.empty() && !asks_.empty();
     }
 
+    /// Fill `prices` and `qtys` with the best `n` bid levels (highest first).
+    /// Returns the number of levels actually filled (may be less than n).
+    std::size_t top_bids(double* prices, uint32_t* qtys, std::size_t n) const noexcept;
+
+    /// Fill `prices` and `qtys` with the best `n` ask levels (lowest first).
+    /// Returns the number of levels actually filled (may be less than n).
+    std::size_t top_asks(double* prices, uint32_t* qtys, std::size_t n) const noexcept;
+
     /// Reset to empty state (both sides cleared, BBO zeroed).
     void clear() noexcept;
 
