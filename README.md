@@ -2,7 +2,7 @@
 
 **C++20 lock-free inter-process communication, microstructure signal engine, and real-time spoofing detector for high-frequency trading.**
 
-Part of a two-project HFT portfolio. [Project A (ultrafast-feed)](https://github.com/example/ultrafast-feed) handles AF\_XDP kernel-bypass packet capture and feed parsing into a `SpscRingBuffer<FeedEvent>`. This project picks up from there: it moves `FeedEvent`s between OS processes via shared memory, computes order book signals in sub-100 ns, and detects spoofing patterns in real time using statistical methods.
+Part of a two-project HFT portfolio. [Project A (ultrafast-feed)](https://github.com/hiteshjakhar29/ultrafast-feed) handles AF\_XDP kernel-bypass packet capture and feed parsing into a `SpscRingBuffer<FeedEvent>`. This project picks up from there: it moves `FeedEvent`s between OS processes via shared memory, computes order book signals in sub-100 ns, and detects spoofing patterns in real time using statistical methods.
 
 ---
 
