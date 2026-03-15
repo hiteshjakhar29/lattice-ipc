@@ -1,3 +1,5 @@
+[![CI](https://github.com/hiteshjakhar29/lattice-ipc/actions/workflows/ci.yml/badge.svg)](https://github.com/hiteshjakhar29/lattice-ipc/actions/workflows/ci.yml)
+
 # lattice-ipc
 
 **C++20 lock-free inter-process communication, microstructure signal engine, and real-time spoofing detector for high-frequency trading.**
