@@ -8,6 +8,8 @@
 #include <string>
 #include <string_view>
 
+namespace lattice::obs { struct PipelineStats; }
+
 namespace lattice::shm {
 
 /// Consumer side of a shared-memory SPSC channel.
@@ -40,6 +42,10 @@ public:
     [[nodiscard]] ShmError  last_error()   const noexcept { return err_; }
     [[nodiscard]] std::string_view name()  const noexcept { return name_; }
 
+    /// Attach an optional stats collector. Queue depth is sampled after each
+    /// successful read. Relaxed atomics keep hot-path overhead negligible.
+    void set_stats(lattice::obs::PipelineStats* s) noexcept { stats_ = s; }
+
 private:
     ShmError validate_header() noexcept;
     void     unmap_and_close() noexcept;
@@ -48,6 +54,7 @@ private:
     ShmLayout<T,N>*   layout_ = nullptr;
     ShmError          err_    = ShmError::None;
     std::string       name_;
+    lattice::obs::PipelineStats* stats_ = nullptr;
 };
 
 } // namespace lattice::shm

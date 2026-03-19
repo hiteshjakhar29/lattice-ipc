@@ -2,6 +2,7 @@
 // Implementation of ShmWriter<T,N> — included by shm_writer.hpp only.
 
 #include "lattice/shm/shm_writer.hpp"
+#include "lattice/obs/pipeline_stats.hpp"
 
 #include <atomic>
 #include <cerrno>
@@ -31,6 +32,8 @@ ShmWriter<T,N>::~ShmWriter() {
 
 template <typename T, std::size_t N>
 bool ShmWriter<T,N>::try_write(const T& item) noexcept {
+    if (stats_) stats_->packets_received.fetch_add(1, std::memory_order_relaxed);
+
     std::atomic_ref<uint64_t> widx(layout_->write_idx);
     std::atomic_ref<uint64_t> ridx(layout_->read_idx);
 
@@ -38,11 +41,13 @@ bool ShmWriter<T,N>::try_write(const T& item) noexcept {
     const uint64_t r = ridx.load(std::memory_order_acquire);
 
     if ((w - r) >= N) {
+        if (stats_) stats_->packets_dropped.fetch_add(1, std::memory_order_relaxed);
         return false; // full
     }
 
     layout_->slots[w & ShmLayout<T,N>::kMask] = item;
     widx.store(w + 1, std::memory_order_release);
+    if (stats_) stats_->packets_processed.fetch_add(1, std::memory_order_relaxed);
     return true;
 }
 

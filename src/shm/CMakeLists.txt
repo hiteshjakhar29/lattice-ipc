@@ -10,6 +10,7 @@ target_include_directories(lattice_shm
 
 target_link_libraries(lattice_shm
     PUBLIC  lattice_compile_options
+    PUBLIC  lattice_obs
 )
 
 # POSIX real-time extensions: shm_open / shm_unlink live in librt on older glibc

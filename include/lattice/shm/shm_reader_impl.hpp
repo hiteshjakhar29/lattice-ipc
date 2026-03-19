@@ -2,6 +2,7 @@
 // Implementation of ShmReader<T,N> — included by shm_reader.hpp only.
 
 #include "lattice/shm/shm_reader.hpp"
+#include "lattice/obs/pipeline_stats.hpp"
 
 #include <atomic>
 #include <cerrno>
@@ -58,6 +59,11 @@ bool ShmReader<T,N>::try_read(T& out) noexcept {
 
     out = layout_->slots[r & ShmLayout<T,N>::kMask];
     ridx.store(r + 1, std::memory_order_release);
+
+    if (stats_) {
+        // depth = items remaining after consuming this one
+        stats_->shm_ring_depth.record(static_cast<std::size_t>(w - (r + 1)));
+    }
     return true;
 }
 

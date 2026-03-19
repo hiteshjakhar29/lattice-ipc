@@ -11,3 +11,7 @@ target_link_libraries(bench_signals PRIVATE lattice_signals benchmark::benchmark
 # ── bench_anomaly ─────────────────────────────────────────────────────────────
 add_executable(bench_anomaly bench_anomaly.cpp)
 target_link_libraries(bench_anomaly PRIVATE lattice_anomaly benchmark::benchmark_main)
+
+# ── bench_obs ─────────────────────────────────────────────────────────────────
+add_executable(bench_obs bench_obs.cpp)
+target_link_libraries(bench_obs PRIVATE lattice_obs benchmark::benchmark_main)
