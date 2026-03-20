@@ -42,12 +42,17 @@ public:
     [[nodiscard]] ShmError  last_error()   const noexcept { return err_; }
     [[nodiscard]] std::string_view name()  const noexcept { return name_; }
 
+    /// Returns true if the segment is still mapped, the fd is open, and the
+    /// header is still valid.  One fstat(2) + header read — safe to call from
+    /// a monitor thread; do not call on every event.
+    [[nodiscard]] bool is_healthy() const noexcept;
+
     /// Attach an optional stats collector. Queue depth is sampled after each
     /// successful read. Relaxed atomics keep hot-path overhead negligible.
     void set_stats(lattice::obs::PipelineStats* s) noexcept { stats_ = s; }
 
 private:
-    ShmError validate_header() noexcept;
+    ShmError validate_header() const noexcept;
     void     unmap_and_close() noexcept;
 
     int               fd_     = -1;

@@ -29,3 +29,23 @@ target_link_libraries(test_simulator PRIVATE
     GTest::gtest_main
 )
 gtest_discover_tests(test_simulator)
+
+# ── test_hardening ─────────────────────────────────────────────────────────────
+add_executable(test_hardening test_hardening.cpp)
+target_include_directories(test_hardening PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(test_hardening PRIVATE
+    lattice_shm
+    GTest::gtest_main
+)
+gtest_discover_tests(test_hardening)
+
+# ── test_stress ────────────────────────────────────────────────────────────────
+add_executable(test_stress test_stress.cpp)
+target_include_directories(test_stress PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(test_stress PRIVATE
+    lattice_shm
+    lattice_signals
+    lattice_anomaly
+    GTest::gtest_main
+)
+gtest_discover_tests(test_stress)

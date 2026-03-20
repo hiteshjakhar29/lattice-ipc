@@ -19,14 +19,21 @@ ShmReader<T,N>::ShmReader(std::string_view shm_name) {
 
     fd_ = ::shm_open(name_.c_str(), O_RDWR, 0600);
     if (fd_ == -1) {
-        err_ = ShmError::OpenFailed;
+        if (errno == ENOENT)
+            err_ = ShmError::SegmentNotFound;
+        else if (errno == EACCES || errno == EPERM)
+            err_ = ShmError::PermissionDenied;
+        else
+            err_ = ShmError::OpenFailed;
         return;
     }
 
     void* addr = ::mmap(nullptr, sizeof(ShmLayout<T,N>),
                         PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0);
     if (addr == MAP_FAILED) {
-        err_ = ShmError::MapFailed;
+        err_ = (errno == EACCES || errno == EPERM)
+                   ? ShmError::PermissionDenied
+                   : ShmError::MapFailed;
         ::close(fd_);
         fd_ = -1;
         return;
@@ -81,7 +88,15 @@ bool ShmReader<T,N>::reattach() noexcept {
 }
 
 template <typename T, std::size_t N>
-ShmError ShmReader<T,N>::validate_header() noexcept {
+bool ShmReader<T,N>::is_healthy() const noexcept {
+    if (!layout_ || fd_ == -1) return false;
+    struct ::stat st{};
+    if (::fstat(fd_, &st) != 0) return false;
+    return validate_header() == ShmError::None;
+}
+
+template <typename T, std::size_t N>
+ShmError ShmReader<T,N>::validate_header() const noexcept {
     // Acquire load on magic to synchronise with writer's release store
     const uint64_t magic = __atomic_load_n(&layout_->hdr.magic, __ATOMIC_ACQUIRE);
     if (magic != ShmLayout<T,N>::kMagic)            return ShmError::BadMagic;

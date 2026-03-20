@@ -44,6 +44,11 @@ public:
     [[nodiscard]] ShmError last_error()  const noexcept { return err_; }
     [[nodiscard]] std::string_view name() const noexcept { return name_; }
 
+    /// Returns true if the segment is still mapped and the file descriptor is
+    /// open.  One fstat(2) syscall — safe to call periodically from a monitor
+    /// thread; never call from the hot write path.
+    [[nodiscard]] bool is_healthy() const noexcept;
+
     /// Attach an optional stats collector.  Counter updates use relaxed atomics
     /// so there is negligible overhead on the hot path.
     void set_stats(lattice::obs::PipelineStats* s) noexcept { stats_ = s; }

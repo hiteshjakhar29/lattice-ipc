@@ -60,10 +60,12 @@ template <typename T, std::size_t N>
 void ShmWriter<T,N>::open_and_map(std::string_view name) noexcept {
     name_ = std::string(name);
 
-    // O_CREAT | O_TRUNC: create fresh or reset existing (writer restart)
+    // O_CREAT: create fresh or attach to existing (writer restart zeroes via init_header)
     fd_ = ::shm_open(name_.c_str(), O_CREAT | O_RDWR, 0600);
     if (fd_ == -1) {
-        err_ = ShmError::OpenFailed;
+        err_ = (errno == EACCES || errno == EPERM)
+                   ? ShmError::PermissionDenied
+                   : ShmError::OpenFailed;
         return;
     }
 
@@ -78,13 +80,22 @@ void ShmWriter<T,N>::open_and_map(std::string_view name) noexcept {
     void* addr = ::mmap(nullptr, region_size,
                         PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0);
     if (addr == MAP_FAILED) {
-        err_ = ShmError::MapFailed;
+        err_ = (errno == EACCES || errno == EPERM)
+                   ? ShmError::PermissionDenied
+                   : ShmError::MapFailed;
         ::close(fd_);
         fd_ = -1;
         return;
     }
 
     layout_ = static_cast<ShmLayout<T,N>*>(addr);
+}
+
+template <typename T, std::size_t N>
+bool ShmWriter<T,N>::is_healthy() const noexcept {
+    if (!layout_ || fd_ == -1) return false;
+    struct ::stat st{};
+    return ::fstat(fd_, &st) == 0;
 }
 
 template <typename T, std::size_t N>
