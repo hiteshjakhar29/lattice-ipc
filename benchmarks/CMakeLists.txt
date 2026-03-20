@@ -15,3 +15,12 @@ target_link_libraries(bench_anomaly PRIVATE lattice_anomaly benchmark::benchmark
 # ── bench_obs ─────────────────────────────────────────────────────────────────
 add_executable(bench_obs bench_obs.cpp)
 target_link_libraries(bench_obs PRIVATE lattice_obs benchmark::benchmark_main)
+
+# ── bench_simulator ────────────────────────────────────────────────────────────
+add_executable(bench_simulator bench_simulator.cpp)
+target_include_directories(bench_simulator PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(bench_simulator PRIVATE
+    lattice_signals
+    lattice_anomaly
+    benchmark::benchmark_main
+)

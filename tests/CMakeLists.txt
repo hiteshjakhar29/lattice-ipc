@@ -19,3 +19,13 @@ gtest_discover_tests(test_anomaly)
 add_executable(test_obs test_obs.cpp)
 target_link_libraries(test_obs PRIVATE lattice_obs lattice_shm GTest::gtest_main)
 gtest_discover_tests(test_obs)
+
+# ── test_simulator ─────────────────────────────────────────────────────────────
+add_executable(test_simulator test_simulator.cpp)
+target_include_directories(test_simulator PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(test_simulator PRIVATE
+    lattice_signals
+    lattice_anomaly
+    GTest::gtest_main
+)
+gtest_discover_tests(test_simulator)

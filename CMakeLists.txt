@@ -69,8 +69,10 @@ add_subdirectory(src/anomaly)
 add_subdirectory(src/obs)
 add_subdirectory(tests)
 add_subdirectory(benchmarks)
+add_subdirectory(tools)
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 message(STATUS "[lattice-ipc] Targets: lattice_shm, lattice_signals, lattice_anomaly, lattice_obs")
-message(STATUS "[lattice-ipc] Tests:   test_shm, test_signals, test_anomaly, test_obs")
-message(STATUS "[lattice-ipc] Bench:   bench_shm, bench_signals, bench_anomaly, bench_obs")
+message(STATUS "[lattice-ipc] Tests:   test_shm, test_signals, test_anomaly, test_obs, test_simulator")
+message(STATUS "[lattice-ipc] Bench:   bench_shm, bench_signals, bench_anomaly, bench_obs, bench_simulator")
+message(STATUS "[lattice-ipc] Tools:   run_simulation")
